@@ -1,0 +1,681 @@
+<!-- saved from url=(0106)file:///R:/010_Community_Relaunch_2017/Konzept/Expense%20Assessment%20for%20DNC%20Development%20Tasks.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+		<title>knotenrechner</title>
+		<style>
+		body , html{
+			font-family: Arial;
+			padding: 0px;
+			margin: 0px;
+		}
+
+		h1{
+			color: #fff;
+			background-color: #666;
+			margin: 0px;
+			padding: 12px 20px;
+		}
+
+		#treeview{
+			margin-left: 20px;
+		}
+
+		#storage{
+			position: fixed;
+			width: 200px;
+			height: 100%;
+			top: 0px;
+			right: 0px;
+			bottom: 0px;
+		}
+		#overview{
+			position: fixed;
+			right: 212px ;
+		}
+
+		.node-display{
+			/*line-height: 2em;*/
+		}
+
+		
+
+		.node-display:last-child:before {
+		    border-left: 0.2em solid #eee;
+		    border-bottom-left-radius: 8px;
+		}
+
+		.node-display .node-display{
+			margin-left: 1.5em;
+    		border-left: 0.2em solid #eee;
+		}
+
+		.node-display .node-display:before{
+			content: " ";
+			display: inline-block;
+			width: 1em;
+			border-bottom: 0.2em solid #eee;
+			margin-bottom: 0.3em;
+			margin-right: 0.3em;
+			height: 0.8em;
+		}
+
+		.node-display  .node-display:last-child {
+		    border-left: 0px;
+		}
+		.node-value{
+			display: inline-block;
+			font-weight: bold;
+		}
+
+		.statistics-number{
+			text-align: right;
+		}
+
+		.warning{
+			display: inline-block;
+			cursor: default;
+		}
+
+		.warning .message{
+			display: none;
+		}
+
+		.warning:hover .message{
+			display: inline;
+		}
+
+		.warning:before{
+			content: "!";
+			font-weight: bold;
+			text-indent: -0.12em;
+			line-height: 1.6em;
+			overflow: visible;
+			display: inline-block;
+			border-width: 0px 0.75em 1.4em;
+			width: 2px;
+			height: 0px;
+			border-radius: 4px;
+			border-color: #f4dd00 rgba( 255 , 255 , 255 , 0.0 );
+			border-style: solid;
+		}
+
+		.node-add-button:before{
+			content: "+";
+		}
+
+		.node-remove-button:before{
+			content: "-";
+		}
+
+		.title-edit{
+			background-color: transparent;
+			color: inherit;
+		}
+
+		.title-edit:hover , .title-edit:active{
+			animation: titleEditAnim 1.0s forwards;
+			-webkit-animation: titleEditAnim 1.0s forwards; /* for less modern browsers */
+		}
+
+		BUTTON , INPUT{
+			border: none;
+			margin: 0em 0.4em;
+			background-color: #f1f1f1;
+			border-radius: 0.3em;
+			font-size: inherit;
+		}
+
+		INPUT{
+			outline: none;
+			background-color: #ffa;
+		}
+
+		BUTTON:hover , BUTTON.active{
+			animation: buttonAnim 1.0s forwards;
+			-webkit-animation: buttonAnim 1.0s forwards; /* for less modern browsers */
+		}
+
+		@keyframes buttonAnim {
+			from {background-color: #f1f1f1;}
+			to {background-color: #bbb;}
+		}
+
+		@keyframes titleEditAnim {
+			from {background-color: rgba( 255 , 255 , 255 , 0.0 );}
+			to {background-color: rgba( 255 , 255 , 255 , 0.25 );}
+		}
+		</style>
+	</head>
+	<body>
+		<h1>Knotenrechner: <button class="title-edit">knotenrechner</button></h1>
+		<div id="overview">
+		<h2>Statistics</h2>
+		<div id="sum"><h3>Overview</h3><table><tbody><tr><td>node count</td><td class="statistics-number">1</td></tr><tr><td>total</td><td class="statistics-number">0</td></tr></tbody></table><h3>1st level summary</h3><table></table></div>
+		</div>
+		<div id="treeview">
+		<h2>Tree Editor</h2>
+		<div id="display"><div class="node-display"><span class="node-label">root</span><button class="node-set-button">=</button><button class="node-add-button"></button><div class="warning"><span class="message">This node has no content!</span></div></div></div>
+		</div>
+		<textarea title="JSON storage" id="storage">{}</textarea>
+
+		<script>
+		// - - - createFuzzyNum - - - - - - - - - - - - - - - - - - - -
+		var createFuzzyNum = function(){
+
+			var that = {};
+
+			var checkSet = function( values ){
+				var check = ( values.length == 2 );
+				check = check && ( !isNaN( values[0] ) );
+				check = check && ( !isNaN( values[1] ) );
+
+				if( check ){
+
+					that.min = Number( values[0] );
+					that.max = Number( values[1] );
+
+					return true;
+				}
+
+				return false;
+			};
+
+			// assigning array values...
+			if( checkSet( arguments ) ){
+				// nothing to do here, checkSet did the work
+			}
+			// assigning default values if no arguments were passed
+			else if( ( arguments.length == 0 ) ){
+				that.min = 0;
+				that.max = 0;
+			}
+			// parsing a string
+			else if( ( arguments.length == 1 )
+				&& ( typeof arguments[0] == "string" ) ){
+				var parseMe = arguments[0];
+				var seperators = [ "–" , " – " , " to " , " bis " , " ~ "  ];
+				var splitMe = parseMe;
+								
+				for( var i = 0 ; i < seperators.length ; i++ ){
+					parseMe = parseMe.replace( seperators[ i ] , "~" );
+				}
+				checkSet( parseMe.split( "~" ) );
+			}
+			// assigning object values
+			else if( ( arguments.length == 1 )
+				&& ( !isNaN( arguments[0].min ) )
+				&& ( !isNaN( arguments[0].max ) ) ){
+
+				that.min = Number( arguments[0].min );
+				that.max = Number( arguments[0].max );
+			}
+
+			that.isValid = function(){
+				return ( typeof that.min == "number" ) && ( typeof that.max == "number" );
+			}
+
+			that.toNumber = function(){
+				return 0.5 * ( that.min + that.max );
+			};
+
+			that.toText = function(){
+				if( that.min != that.max ){
+					return that.min + " ~ " + that.max;
+				}
+				else{
+					return that.min;
+				}
+			}
+
+			that.add = function( addMe ){
+				if( ( typeof addMe.isValid == "function" ) && addMe.isValid() ){
+					that.min += addMe.min;
+					that.max += addMe.max;
+					return true;
+				}
+				else if( ( arguments.length == 1 ) && !isNaN( arguments[ 0 ] ) ){
+					that.min += Number( arguments[ 0 ] );
+					that.max += Number( arguments[ 0 ] );
+					return true;
+				}
+				return false;
+			}
+
+			return that;
+		};
+
+		// - - - calcObj - - - - - - - - - - - - - - - - - - - -
+		// returns the given object with some crawling functions
+		// first approach to a tree calculation application
+		var calcObj = function( obj , calculateFuzzyNums ){
+			var that = {};
+
+			// - - - Sum - - - - - - - - - - - - - - - - - - - -
+			that.sum = function( desc ){
+				var sum = 0;
+				var sumFuzz = createFuzzyNum();
+
+				var crawl = function( node , descFit ){
+					var fuzzNode = createFuzzyNum( node );
+
+					if( ( typeof node == "number" ) && descFit ){
+						sum += node;
+						sumFuzz.add( node );
+					}
+					else if( calculateFuzzyNums && fuzzNode.isValid() && descFit ){
+						sumFuzz.add( fuzzNode );
+					}
+					else if( typeof node != "string" ){
+						for( var key in node ){
+							crawl( node[ key ] , ( descFit || ( key == desc ) ) );
+						}
+					}
+				};
+
+				crawl( obj , ( typeof desc == "undefined" ) );
+
+				if( calculateFuzzyNums ){
+					return sumFuzz;
+				}
+
+				return sum;
+			};
+
+			that.count = function( desc ){
+				var count = 0;
+
+				var crawl = function( node , descFit ){
+
+					if( descFit ){
+						count++;
+					}
+
+					if( ( typeof node != "string" ) && !( calculateFuzzyNums && createFuzzyNum( node ).isValid() ) ){
+						
+						for( var key in node ){
+							crawl( node[ key ] , ( ( typeof desc == "undefined" ) || ( key == desc ) ) );
+						}
+					}
+				};
+
+				crawl( obj , ( typeof desc == "undefined" ) );
+
+				return count;
+			};
+
+			// - - - Get - - - - - - - - - - - - - - - - - - - -
+			that.get = function( desc ){
+				var nodes = [];
+				
+				if( typeof desc == "undefined" ){
+					nodes.push( obj );
+				}
+				else{
+
+					var crawl = function( node ){
+						for( var key in node ){
+							if( key == desc ){
+								var pushObj = {};
+								pushObj[ key ] = node[ key ]
+								nodes.push( pushObj );
+							}
+							crawl( node[ key ] );
+						}
+					};
+
+					crawl( obj );
+				}
+
+				return nodes;
+			};
+
+			return that;
+		};
+
+		// - - - createDomStorage - - - - - - - - - - - - - - - - - - - -
+		// Creates a storage object referring to a DOM element
+		// – preferably a textarea
+		var createDomStorage = function( storageID ){
+
+			var that = {};
+
+			var el = document.getElementById( storageID );
+
+			that.onChange = function( value ){};
+
+			that.retrieve = function(){
+				var storageJson = el.innerHTML;
+
+				if( storageJson.length > 0 ){
+					return JSON.parse( storageJson );
+				}
+				else{
+					return {};
+				}
+			};
+
+			that.store = function( value ){
+				storeMe = JSON.stringify( value );
+				document.getElementById( storageID ).innerHTML = storeMe;
+				document.getElementById( storageID ).value = storeMe;
+			};
+
+			el.addEventListener( "change" , function(){ el.innerHTML = el.value; that.onChange( JSON.parse( el.value ) ) });			
+
+			return that;
+		};
+
+		// - - - krUI - - - - - - - - - - - - - - - - - - - -
+		// Creating a knotenrechner UI object that provides several UI elements
+		var krUI = (function(){
+			var that = {};
+
+			// - - - krUI - - - - - - - - - - - - - - - - - - - -
+			// krUI's internal helper
+			var service = {
+				createInputButton: function( label , preset , className , inputHandler ){
+					var el = document.createElement( "BUTTON" );
+					el.className = className;
+					el.appendChild( document.createTextNode( label ) );
+
+					el.addEventListener( "click" , function( event ){
+						var inputEl = document.createElement( "INPUT" );
+						inputEl.type = "text";
+						inputEl.value = preset;
+						el.parentNode.insertBefore( inputEl , el.nextSibling );
+						inputEl.focus();
+						inputEl.select();
+						el.style.display = "none";
+
+						var clear = function(){
+							inputEl.removeEventListener( "change" , handleInput );
+							inputEl.removeEventListener( "focusout" , clear );
+							inputEl.removeEventListener( "keyup" , escape );
+							el.parentNode.removeChild( inputEl );
+							el.style.display = "";
+						};
+
+						var handleInput = function( inputEvent ){
+							if( inputEl.value.length > 0 ){
+								inputHandler( inputEl.value );
+							}
+						};
+
+						var escape = function( e ){
+							if (e.keyCode == 27) { // escape key maps to keycode `27`
+								clear();
+							}
+						};
+
+						inputEl.addEventListener( "change" , handleInput );
+						inputEl.addEventListener( "focusout" , clear );
+						inputEl.addEventListener( "keyup" , escape );
+						
+					});
+
+					return el;
+				}
+
+				, createWarning: function( msg ){
+					var el = document.createElement( "DIV" );
+					el.className = "warning";
+					msgEl = document.createElement( "span" );
+					msgEl.className = "message";
+					msgEl.appendChild( document.createTextNode( msg ) );
+					el.appendChild( msgEl );
+
+					return el;
+				}
+			};
+
+			// - - - treeEditor - - - - - - - - - - - - - - - - - - - -
+			// Creates a tree editor UI in the dom node given
+			that.treeEditor = function( domRoot ){
+				var that = {};
+
+				var obj = {};
+
+				that.labelStyler = function( name , value ) { return name; };
+
+				that.onChange = function(){};
+
+				that.displayFuzzyNums = true;
+
+				var addRemoveButton = function( node , domParent , parent , key ){
+					var el = document.createElement( "BUTTON" );
+					el.className = "node-remove-button";
+					domParent.appendChild( el );
+
+					el.addEventListener( "click" , function( event ){
+						
+						delete parent[ key ];
+
+						that.onChange( obj );
+
+						render();
+					});
+				};
+
+				
+				var addAddButton = function( parent , domParent ){
+					domParent.appendChild( service.createInputButton( "" , "" , "node-add-button" , function( nodeName ){
+				 		parent[ nodeName ] = {};
+						that.onChange( obj );
+						render();
+					} ) );
+				};
+
+				var addSetButton = function( node , domParent , parent , key ){
+					var btnText = "=";
+					var inputPreset = "";
+					
+					if( ( typeof node == "number" )
+						|| ( typeof node == "string" ) ){
+						btnText = node;
+						inputPreset = node;
+					}
+					
+					var textFuzz = createFuzzyNum( node );
+					if( textFuzz.isValid() ){
+						btnText = textFuzz.toText();
+						inputPreset = btnText;
+					}
+
+					domParent.appendChild( service.createInputButton( btnText , inputPreset , "node-set-button" , function( value ){
+
+						var fuzzValue = createFuzzyNum( value );
+
+						if( fuzzValue.isValid() ){
+							parent[ key ] = fuzzValue;
+						}else if( isNaN( value ) ){
+					 		parent[ key ] = value;
+					 	}
+					 	else{
+					 		parent[ key ] = Number( value );
+					 	}
+					 	
+						that.onChange( obj );
+						render();
+					 }) );
+				};
+
+				// - - - render - - - - - - - - - - - - - - - - - - - -
+				var render = function(){
+					
+					// - - - buildNode - - - - - - - - - - - - - - - - - - - -
+					var buildNode = function( key , node , parent ){
+						var el = document.createElement( "DIV" );
+						el.className = "node-display";
+
+						var fuzzCheck = ( that.displayFuzzyNums && ( createFuzzyNum( node ).isValid() ) );
+
+						var label = document.createElement( "span" );
+						label.className = "node-label";
+						label.innerHTML = that.labelStyler( key , node );
+						// display key
+						el.appendChild( label );
+
+						if( ( typeof node != "object" )
+							|| ( Object.keys( node ).length == 0 )
+							|| fuzzCheck ){
+
+							// display value
+							addSetButton( node , el , parent , key );
+
+							if( parent != null ){
+								addRemoveButton( node , el , parent , key );
+							}
+						}
+
+						if( ( typeof node == "object" ) && ( typeof node != "string" ) && !fuzzCheck ){
+							addAddButton( node , el );
+						}
+
+						if( ( typeof node == "number" ) && ( node <= 0 ) ){
+							el.appendChild( service.createWarning( "This node has a value less than or equal 0!" ) );
+						}
+
+						if( ( typeof node == "object" ) && ( Object.keys( node ).length == 0 ) ){
+							el.appendChild( service.createWarning( "This node has no content!" ) );
+						}
+
+						return el;
+					};
+
+					// initialize DOM root element
+					domRoot.innerHTML = "";
+
+					var crawl = function( label , node , parent , domParent ){
+						
+						var el = buildNode( label , node , parent );
+						domParent.appendChild( el );
+
+						if( ( typeof node != "string" ) && !( that.displayFuzzyNums && createFuzzyNum( node ).isValid() ) ){
+							for( var key in node ){
+								crawl( key , node[ key ] , node , el );
+							}
+						}
+					};
+
+					crawl( "root" , obj , null , domRoot );
+				};
+
+				that.update = function( updateObj ){
+					obj = updateObj;
+					render();
+				};
+
+				return that;
+			};
+
+
+
+			// - - - treeStats - - - - - - - - - - - - - - - - - - - -
+			// Creates a tree statistics UI in the dom node given
+			that.treeStats = function( domRoot ){
+				var that = {};
+
+				var obj ={};
+
+				// - - - that.config - - - - - - - - - - - - - - - - - - - -
+				// Config is supposed to be a domStorage
+				// TODO: make something of it
+				that.config = {
+					retrieve: function(){ return {}; }
+					, store: function(){}
+				};
+
+				var render = function(){
+
+					calculator = calcObj( obj , true );
+
+					var summaryHTML = "";
+
+					// - - - overview - - - - - - - - - - - -
+					summaryHTML += "<h3>Overview</h3>";
+					summaryHTML += "<table>";
+
+					summaryHTML += "<tr><td>node count</td><td class=\"statistics-number\">" + calculator.count() + "</td></tr>";
+					summaryHTML += "<tr><td>total</td><td class=\"statistics-number\">" + calculator.sum().toText() + "</td></tr>";
+					
+					summaryHTML += "</table>";
+
+					// - - - 1st level summary - - - - - - - - - - - -
+					summaryHTML += "<h3>1st level summary</h3>";
+					summaryHTML += "<table>";
+					
+					for( var key in obj ){
+						var html = "<tr><td>" + key + "</td><td class=\"statistics-number\">" + calculator.sum( key ).toText() + "</td></tr>";
+						summaryHTML += html;
+					}
+					
+					summaryHTML += "</table>";
+
+					domRoot.innerHTML = summaryHTML;
+				};
+
+				that.update = function( updateObj ){
+					obj = updateObj;
+					render();
+				};
+
+				return that;
+			};
+
+			// - - - headline - - - - - - - - - - - - - - - - - - - -
+			// Creates a tree statistics UI in the dom node given
+			that.headline = function( domRoot ){
+				var that = {};
+
+				var titleEl = document.getElementsByTagName( "title" )[0];
+
+				var render = function(){
+
+					domRoot.innerHTML = "";
+
+					domRoot.appendChild( document.createTextNode( "Knotenrechner: " ) );
+
+					domRoot.appendChild( service.createInputButton( titleEl.innerHTML , titleEl.innerHTML , "title-edit" , function( newTitle ){
+						titleEl.innerHTML = newTitle;
+						render();
+					} ) );
+
+				};
+
+				that.update = function( newTitle ){
+					if( typeof newTitle == "string" ){
+						titleEl.innerHTML = newTitle;
+					}
+					render();
+				};
+
+				return that;
+			};
+
+			return that;
+		})();
+
+		var taskStorage = createDomStorage( "storage" );
+
+		var taskCollection = taskStorage.retrieve();
+
+		var taskStats = krUI.treeStats( document.getElementById( "sum" ) );
+		taskStats.update( taskCollection );
+
+		var taskUI = krUI.treeEditor( document.getElementById( "display" ) );
+		taskUI.onChange = function( updateObj ){
+			taskStorage.store( updateObj );
+			taskStats.update( updateObj );
+		 };
+		taskUI.update( taskCollection );
+
+		taskStorage.onChange = function( value ){
+			taskStats.update( value );
+			taskUI.update( value );			
+		};
+
+		var taskHeadline = krUI.headline( document.getElementsByTagName( "h1" )[0] );
+		taskHeadline.update();
+
+		</script>
+	
+</body></html>
