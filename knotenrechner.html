@@ -108,11 +108,11 @@
 		}
 
 		.node-add-button:before{
-			content: "+";
+			content: "{}";
 		}
 
 		.node-remove-button:before{
-			content: "-";
+			content: "}{";
 		}
 
 		.title-edit{
@@ -123,6 +123,30 @@
 		.title-edit:hover , .title-edit:active{
 			animation: titleEditAnim 1.0s forwards;
 			-webkit-animation: titleEditAnim 1.0s forwards; /* for less modern browsers */
+		}
+
+		.node-display BUTTON.collapse , .node-display BUTTON.unfold{
+			    display: inline-block;
+				height: 1.2em;
+				width: 1.2em;
+				margin-left: -0.3em;
+				margin-top: -0.05em;
+				vertical-align: middle;
+				border: 2px solid #ddd;
+				color: #ddd;
+				font-weight: bold;
+		}
+
+		.node-display BUTTON.collapse:before{
+			content: "-";
+			line-height: 0.5em;
+			margin-left: -0.1em;
+		}
+
+		.node-display BUTTON.unfold:before{
+			content: "+";
+			line-height: 1em;
+			margin-left: -0.2em;
 		}
 
 		BUTTON , INPUT{
@@ -354,6 +378,10 @@
 
 			var el = document.getElementById( storageID );
 
+			// Firefox seems to add random linebreaks when saving html
+			// files so this ugly step seems to be necessary.
+			el.innerHTML = el.innerHTML.replace( /(\r\n|\n|\r)/gm , "" );
+
 			that.onChange = function( value ){};
 
 			that.retrieve = function(){
@@ -534,8 +562,42 @@
 					var buildNode = function( key , node , parent ){
 						var el = document.createElement( "DIV" );
 						el.className = "node-display";
-
 						var fuzzCheck = ( that.displayFuzzyNums && ( createFuzzyNum( node ).isValid() ) );
+
+						//add collapser
+						if( ( typeof node == "object" )
+							&& ( typeof node != "string" )
+							&& ( Object.keys( node ).length > 0 )
+							&& !fuzzCheck ){
+
+							var colEl = document.createElement( "button" );
+
+							var hideChildren = function(){
+								for( var i = 0 ; i < el.childNodes.length ; i++ ){
+									if( el.childNodes[ i ].className.search( "node-display" ) > -1 ){
+										el.childNodes[ i ].style.display = "none";
+									}
+								}
+								colEl.className = "unfold";
+								colEl.removeEventListener( "click" , hideChildren );
+								colEl.addEventListener( "click" , showChildren );
+							};
+
+							var showChildren = function(){
+								for( var i = 0 ; i < el.childNodes.length ; i++ ){
+									if( el.childNodes[ i ].className.search( "node-display" ) > -1 ){
+										el.childNodes[ i ].style.display = "";
+									}
+								}
+								colEl.className = "collapse";
+								colEl.removeEventListener( "click" , showChildren );
+								colEl.addEventListener( "click" , hideChildren );
+							};
+
+							showChildren();
+
+							el.appendChild( colEl );
+						}
 
 						var label = document.createElement( "span" );
 						label.className = "node-label";
