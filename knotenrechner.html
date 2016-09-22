@@ -385,7 +385,7 @@
 			that.onChange = function( value ){};
 
 			that.retrieve = function(){
-				var storageJson = el.innerHTML;
+				var storageJson = el.value;
 
 				if( storageJson.length > 0 ){
 					return JSON.parse( storageJson );
