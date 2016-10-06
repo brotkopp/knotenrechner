@@ -64,7 +64,8 @@
     		border-left: 0.2em solid #eee;
 		}
 
-		.node-display .node-display:before{
+		
+		.node-display:before{
 			content: " ";
 			display: inline-block;
 			width: 1em;
@@ -772,7 +773,7 @@
 					summaryHTML += "<table>";	
 					var tags = calculator.tags();
 					for( var key in tags ){
-						summaryHTML += "<tr><td>" + key + "</td><td class=\"statistics-number\">"+ tags[key].min + " ~ "+tags[key].max+"</td></tr>";
+						summaryHTML += "<tr><td>" + key + "</td><td class=\"statistics-number\">"+ Math.ceil(tags[key].min) + " ~ "+Math.ceil(tags[key].max)+"</td></tr>";
 					}					
 					summaryHTML += "</table>";
 
