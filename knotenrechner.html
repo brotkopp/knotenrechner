@@ -1,11 +1,18 @@
 <!-- saved from url=(0106)file:///R:/010_Community_Relaunch_2017/Konzept/Expense%20Assessment%20for%20DNC%20Development%20Tasks.html -->
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 		<title>knotenrechner</title>
 		<style>
 		body , html{
 			font-family: Arial;
 			padding: 0px;
 			margin: 0px;
+		}
+
+		button:focus {
+			outline: 0px;
+		    color: #888 ! important;
+		    border-color: #888 ! important;
+		    background-color: #ccc ! important;
 		}
 
 		h1{
@@ -53,11 +60,12 @@
 		}
 
 		.node-display .node-display{
-			margin-left: 1.5em;
+			margin-left: 1.7em;
     		border-left: 0.2em solid #eee;
 		}
 
-		.node-display .node-display:before{
+		
+		.node-display:before{
 			content: " ";
 			display: inline-block;
 			width: 1em;
@@ -108,11 +116,11 @@
 		}
 
 		.node-add-button:before{
-			content: "{}";
+			content: "+";
 		}
 
 		.node-remove-button:before{
-			content: "}{";
+			content: "✖";
 		}
 
 		.title-edit{
@@ -145,7 +153,7 @@
 
 		.node-display BUTTON.unfold:before{
 			content: "+";
-			line-height: 1em;
+			line-height: 0.5em;
 			margin-left: -0.2em;
 		}
 
@@ -201,7 +209,7 @@
 
 			var that = {};
 
-			var checkSet = function( values ){
+			var checkSet = function( values, tags ){
 				var check = ( values.length == 2 );
 				check = check && ( !isNaN( values[0] ) );
 				check = check && ( !isNaN( values[1] ) );
@@ -210,6 +218,10 @@
 
 					that.min = Number( values[0] );
 					that.max = Number( values[1] );
+
+					if( tags != null ) {
+						that.tags = tags;
+					}
 
 					return true;
 				}
@@ -229,14 +241,30 @@
 			// parsing a string
 			else if( ( arguments.length == 1 )
 				&& ( typeof arguments[0] == "string" ) ){
-				var parseMe = arguments[0];
-				var seperators = [ "–" , " – " , " to " , " bis " , " ~ "  ];
-				var splitMe = parseMe;
-								
-				for( var i = 0 ; i < seperators.length ; i++ ){
-					parseMe = parseMe.replace( seperators[ i ] , "~" );
+
+				var parts = arguments[0].split('/');
+				var tags = []
+
+				if( parts.length == 2 ) {
+					// get tags ...
+					var items = parts[1].split(",");
+					for( var t=0;t < items.length;t++ ) {
+						var match = items[t].match(/(\w+)\s*[=]*\s*?(\d+?[\.|\,]?\d*)?[\%]*/)
+						if( match[2] == null )
+							match[2] = 100;
+						tags.push( {name: match[1], value: match[2] });
+					}
 				}
-				checkSet( parseMe.split( "~" ) );
+
+				var matches = parts[0].match(/(\d+?[\.,\,]?\d*)\s*(-|~|to|bis)*\s*(\d+?[\.,\,]?\d*)*/);
+				if( matches && matches[1] != null ) {
+					if( matches[3] != null )
+						checkSet( [ matches[1].replace(',','.'), matches[3].replace(',','.') ] , tags);
+					else 
+						checkSet( [ matches[1].replace(',','.'),matches[1].replace(',','.') ] , tags );
+				} else {
+					checkSet( parts[0] );
+				}
 			}
 			// assigning object values
 			else if( ( arguments.length == 1 )
@@ -245,6 +273,7 @@
 
 				that.min = Number( arguments[0].min );
 				that.max = Number( arguments[0].max );
+				that.tags = arguments[0].tags;
 			}
 
 			that.isValid = function(){
@@ -256,11 +285,23 @@
 			};
 
 			that.toText = function(){
+
+				var tagstr = "";
+				if( that.tags != null && that.tags.length > 0) {
+					for( var t=0;t < that.tags.length;t++ ) {
+						if( t==0) 
+							tagstr += " / ";
+						else
+							tagstr += ', ';
+						tagstr += that.tags[t].name + '='+that.tags[t].value+'%';
+					}
+				}
+
 				if( that.min != that.max ){
-					return that.min + " ~ " + that.max;
+					return that.min + " ~ " + that.max+tagstr;
 				}
 				else{
-					return that.min;
+					return that.min+tagstr;
 				}
 			}
 
@@ -316,6 +357,35 @@
 				}
 
 				return sum;
+			};
+
+			that.tags = function() {
+
+				var sumtags = {};
+
+				function crawl( node , tags ) {
+
+					if( typeof node == 'object' && node.tags ) {
+						for( var t in node.tags ) {
+							var key = node.tags[t].name;
+							var val = node.tags[t].value/100;
+							if( tags[key] == null ) {
+								tags[key] = {min:node.min*val,max:node.max*val};
+							} else {
+								tags[key].min += node.min*val;
+								tags[key].max += node.max*val;
+							}
+						}
+					} else {
+						for( var key in node ){
+							crawl( node[key], tags );
+						}
+					}
+				}
+				crawl( obj , sumtags );
+
+				console.log( sumtags );
+				return sumtags;
 			};
 
 			that.count = function( desc ){
@@ -692,13 +762,19 @@
 
 					// - - - 1st level summary - - - - - - - - - - - -
 					summaryHTML += "<h3>1st level summary</h3>";
-					summaryHTML += "<table>";
-					
+					summaryHTML += "<table>";					
 					for( var key in obj ){
 						var html = "<tr><td>" + key + "</td><td class=\"statistics-number\">" + calculator.sum( key ).toText() + "</td></tr>";
 						summaryHTML += html;
 					}
-					
+					summaryHTML += "</table>";
+
+					summaryHTML += "<h3>Tag summary</h3>";
+					summaryHTML += "<table>";	
+					var tags = calculator.tags();
+					for( var key in tags ){
+						summaryHTML += "<tr><td>" + key + "</td><td class=\"statistics-number\">"+ Math.ceil(tags[key].min) + " ~ "+Math.ceil(tags[key].max)+"</td></tr>";
+					}					
 					summaryHTML += "</table>";
 
 					domRoot.innerHTML = summaryHTML;
